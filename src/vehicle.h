@@ -36,8 +36,6 @@ public:
 
     std::queue<string> state_buffer;
 
-    int state_hysterisis = 2;
-
     double a = 0.0;
 
     // velocity to target
@@ -47,13 +45,15 @@ public:
 
     map<int, double> intended_lane_velocity;
 
+    double state_cost_switch_threshold = 2;
+
     // lane chnage opportunities with less velocity gain than this threshold are not accounted in the cost function
-    double velocity_lane_change_threshold = 2.0;
+    double velocity_lane_change_threshold = 0.0;
 
     vector<MovingAverage> lane_costs;
     vector<double> average_lane_costs;
 
-    int lane_score_moving_average_window = 30;
+    int lane_score_moving_average_window = 10;
 
     int lanes_available = 3;
 
@@ -134,8 +134,6 @@ public:
 
     vector<Vehicle> generate_predictions(int prediction_horizon = 2);
 
-    //void realize_next_state(vector<Vehicle> trajectory);
-
     vector<vector<double> > generate_spline(int lane, double velocity);
 
     /// Transform from Frenet s,d coordinates to Cartesian x,y - not a linear transformation
@@ -162,6 +160,8 @@ public:
     // Cost related methods Functions
     vector<int> lane_score_ranker(int lane, double cost);
 
+    void decide_best_lane(vector<int> lane_rankings);
+
     double calculate_cost(int lane);
 
     double goal_distance_cost();
@@ -175,7 +175,7 @@ public:
     struct weighted_cost_functions {
         double time_diff_weight = 1;
         double s_diff_weight = 1;
-        double d_diff_weight = 10;
+        double d_diff_weight = 1000;
         double efficiency_weight = 1;
         double max_jerk_weight = 1;
         double total_jerk_weight = 1;

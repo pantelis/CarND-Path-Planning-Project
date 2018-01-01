@@ -108,14 +108,14 @@ vector<string> Vehicle::successor_states() {
     else if (state == "PLCL") {
         // assumes that lane 0 is the leftmost lane
         if (lane != 0) {
-            //states.emplace_back("PLCL");
+            states.emplace_back("PLCL");
             states.emplace_back("LCL");
         }
     }
     else if (state == "PLCR") {
         // assumes that lanes_available-1 is the right most lane
         if (lane != lanes_available - 1) {
-            //states.emplace_back("PLCR");
+            states.emplace_back("PLCR");
             states.emplace_back("LCR");
         }
     }
@@ -170,6 +170,8 @@ vector<vector<double> > Vehicle::choose_next_state(map<int, vector<Vehicle>> pre
 //       cost.cpp, computes the cost for a trajectory.
 
 
+    state = "KL";
+
     // populates the lane occupancy vector for other lanes
     get_lanes_occupancy(predictions);
 
@@ -177,10 +179,6 @@ vector<vector<double> > Vehicle::choose_next_state(map<int, vector<Vehicle>> pre
     vector<string> possible_successor_states = reduced_successor_states();
 
     // keep track of the total cost of each possible state.
-    double min_cost = 1e6;
-
-    string min_cost_state = "";
-    int min_cost_lane;
     vector<vector<double > > min_cost_traj;
 
     vector<int> lane_rankings;
@@ -195,34 +193,70 @@ vector<vector<double> > Vehicle::choose_next_state(map<int, vector<Vehicle>> pre
         // calculate the "cost" associated with that trajectory.
         double trajectory_cost = calculate_cost(new_lane);
 
-        if (trajectory_cost < min_cost) {
-            min_cost_state = state_iter;
-            min_cost_lane = new_lane;
-            min_cost_traj = traj;
-            min_cost = trajectory_cost;
-        }
-
+        // rank lanes according to average cost - averaging window is a parameter.
+        lane_rankings = lane_score_ranker(new_lane, trajectory_cost);
     }
 
-    lane_rankings = lane_score_ranker(min_cost_lane, min_cost);
+    for (auto v : lane_rankings)
+        std::cout << v << ' ' << average_lane_costs[v] << " | ";
+    cout << endl;
 
-    if (lane_rankings[0] > lane && (!lane_occupancy[lane_rankings[0]])){
-        state = "LCR";
-    } else if (lane_rankings[0] < lane && (!lane_occupancy[lane_rankings[0]]))
-    {
-        state = "LCL";
-    } else state = "KL";
-
-    lane = lane_rankings[0];
+    decide_best_lane(lane_rankings);
 
     vector<vector<double> > final_trajectory = generate_trajectory(state, lane, predictions);
-
-    cout << "MIN COST LANE = " << lane << " with cost = " << average_lane_costs[lane] << endl;
 
     return final_trajectory;
 
 }
 
+void Vehicle::decide_best_lane(vector<int> lane_rankings){
+
+    // decide best lane policy
+
+    // (1) If there the change lane involves more than two lanes then dont follow the suggestion
+    //     since it will violate the acceleration and jerk limits
+    // (2) dont follow the suggestion if the suggested lane is occupied.
+    // (3) Follow the greedy policy i.e. the least cost policy only if this offers some significant gain.
+    double delta_cost;
+
+    if (!lane_occupancy[lane_rankings[0]])
+    {
+        if (lane_rankings[0] == lane + 1){
+
+            delta_cost = abs(average_lane_costs[lane_rankings[0]]-average_lane_costs[lane]);
+
+            if (delta_cost > state_cost_switch_threshold) {
+                state = "LCR";
+                lane = lane_rankings[0];
+                //average_lane_costs[lane] -= 1;
+            }
+            else
+                state = "KL";
+        }
+        else if (lane_rankings[0] == lane - 1)
+        {
+            delta_cost = abs(average_lane_costs[lane_rankings[0]]-average_lane_costs[lane]);
+
+            if (delta_cost > state_cost_switch_threshold) {
+                state = "LCL";
+                lane = lane_rankings[0];
+                //average_lane_costs[lane] -= 1;
+            }
+            else
+                state = "KL";
+        }
+    }
+    else
+    {
+        // lane is unchanged
+        delta_cost = 0.0;
+        state = "KL";
+    }
+
+    cout << "BEST LANE = " << lane << " with delta cost = " << delta_cost << " " << average_lane_costs[lane] << endl;
+
+
+}
 vector<int> Vehicle::lane_score_ranker(int new_lane, double min_cost) {
 
     average_lane_costs[new_lane] = lane_costs[new_lane].next(min_cost);
@@ -236,10 +270,6 @@ vector<int> Vehicle::lane_score_ranker(int new_lane, double min_cost) {
     std::sort(  std::begin(ranked_lane_indeces),
                 std::end(ranked_lane_indeces),
                 [&](double i1, double i2) { return average_lane_costs[i1] < average_lane_costs[i2]; } );
-
-    for (auto v : ranked_lane_indeces)
-        std::cout << v << ' ' << average_lane_costs[v] << " | ";
-    cout << endl;
 
    return ranked_lane_indeces;
 
@@ -264,23 +294,20 @@ vector<vector<double> > Vehicle::generate_trajectory(string successor_state,  in
 
 double Vehicle::get_lane_velocity(map<int, vector<Vehicle> > predictions, int new_lane) {
 
-//    Gets next timestep kinematics (position, velocity, acceleration)
-//    for a given lane. Tries to choose the maximum velocity and acceleration,
+//    Gets next velocity for a given lane. Tries to choose the maximum velocity and acceleration,
 //    given other vehicle positions and accel/velocity constraints.
 
     double max_velocity_accel_limit = v + max_acceleration*Ts;
-
-    cout << "max_velocity_accel_limit = " << v << endl;
 
     double lane_velocity;
     Vehicle vehicle_ahead;
 
     if (get_vehicle_ahead(predictions, vehicle_ahead, new_lane)) {
-        lane_velocity = vehicle_ahead.v;
+        lane_velocity = vehicle_ahead.v; //min(max_velocity_accel_limit, vehicle_ahead.v) ;
         //cout << "Velocity for lane " << new_lane << " is limited by vehicle ahead with velocity " << lane_velocity << endl;
     } else {
 
-        lane_velocity = vel_target;//max_velocity_accel_limit; //max(max_velocity_accel_limit, v);
+        lane_velocity = max_velocity_accel_limit;//max(max_velocity_accel_limit, v); // vel_target;//max_velocity_accel_limit; //max(max_velocity_accel_limit, v);
         //cout << "Velocity for lane " << new_lane << " = " << lane_velocity << endl;
     }
 
@@ -291,6 +318,9 @@ double Vehicle::get_lane_velocity(map<int, vector<Vehicle> > predictions, int ne
 vector<vector<double> > Vehicle::keep_lane_trajectory(int lane, map<int, vector<Vehicle>> predictions) {
 
     /// Generate a keep-lane trajectory.
+
+    double this_lane_velocity = get_lane_velocity(predictions, lane);
+
     Vehicle vehicle_ahead;
     bool exists_vehicle_ahead = get_vehicle_ahead(predictions, vehicle_ahead, lane);
 
@@ -300,31 +330,28 @@ vector<vector<double> > Vehicle::keep_lane_trajectory(int lane, map<int, vector<
 
         too_close = true;
 
-        cout << "THERE IS A CLOSE VEHICLE AHEAD WITH VELOCITY " << vehicle_ahead.v << " m/s" << endl;
-        cout << "s of get_vehicle_ahead " << vehicle_ahead.s << endl;
-
+        // cout << "THERE IS A CLOSE VEHICLE AHEAD WITH VELOCITY " << vehicle_ahead.v << " m/s" << endl;
     }
 
     // find the best velocity to use
-    double increment = 4.0* max_acceleration * Ts;
+    double increment = 3.0 * max_acceleration * Ts;
+
     if (too_close) {
 
-        cout << "Decrement=" << increment << endl;
+        // cout << "Decrement=" << increment << endl;
         v -= increment;
 
         intended_lane_velocity[lane] = v;
     }
-//    if (v < vehicle_ahead.v){
-//        v += increment;
-//    }
-    else if (v < vel_target || v < vehicle_ahead.v) {
-        cout << "Increment=" << increment << endl;
+    else if (v < vel_target || v <= vehicle_ahead.v) {
+        // cout << "Increment=" << increment << endl;
 
         v += increment;
 
-        intended_lane_velocity[lane] = vel_target;
+        intended_lane_velocity[lane] = this_lane_velocity;
     }
 
+    // cout << "KL TRAJECTORY : lane " << lane << "  " << " Velocity = " << intended_lane_velocity[lane] << endl;
     vector<vector<double> > traj = generate_spline(lane, v);
 
     return traj;
@@ -353,7 +380,7 @@ vector<vector<double> > Vehicle::lane_change_trajectory(int new_lane, map<int, v
 
     intended_lane_velocity[new_lane] = next_lane_velocity;
 
-    cout << "LC TRAJECTORY : from lane " << lane << " to new_lane " << new_lane << " Velocity = " << next_lane_velocity << endl;
+    cout << "LC TRAJECTORY : from lane " << lane << " to lane " << new_lane << " Velocity = " << next_lane_velocity << endl;
 
     traj = generate_spline(new_lane, next_lane_velocity);
 
@@ -471,12 +498,12 @@ double Vehicle::inefficiency_cost(double intended_lane_vel) {
     // Cost becomes higher for trajectories with intended lane and final lane that have slower traffic.
 
     double cost;
-    cout << intended_lane_vel << " " << v << endl;
-    //if (intended_lane_vel > v + velocity_lane_change_threshold){
-    cost = 1.0 - ((intended_lane_vel - v)/intended_lane_vel);// - abs(v-intended_lane_vel);
-//    } else{
-//        cost = abs(v-intended_lane_vel);
-//    }
+    // cout << intended_lane_vel << " " << v << endl;
+    if (intended_lane_vel > v + velocity_lane_change_threshold){
+        cost = - abs(v-intended_lane_vel);// 1.0 - ((intended_lane_vel - v)/intended_lane_vel);// - abs(v-intended_lane_vel);
+    } else{
+        cost = abs(v-intended_lane_vel);
+    }
     //double cost = abs((0.00001 + (intended_lane_vel - v)/v));
     //double cost = logistic((intended_lane_vel - v)/v);
 
@@ -497,7 +524,7 @@ double Vehicle::occupant_experience_cost(int intended_lane) {
 double Vehicle::collision_cost(int lane){
 
     if (lane_occupancy[lane]){
-        return 10;
+        return 1000;
     } else{
         return 0;
     }
@@ -514,9 +541,9 @@ double Vehicle::calculate_cost(int lane) {
 
     cost = weights.efficiency_weight * inefficiency_cost(intended_lane_velocity[lane]);
 
-    cost += weights.collision_weight * collision_cost(lane);
+    // cost += weights.collision_weight * collision_cost(lane);
 
-    cost += weights.d_diff_weight * occupant_experience_cost(lane);
+    //cost += weights.d_diff_weight * occupant_experience_cost(lane);
 
 
     return cost;

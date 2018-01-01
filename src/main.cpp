@@ -182,8 +182,6 @@ int main() {
 
                             // given a set of predictions choose the next state
                             vector<vector<double> > trajectory = car.choose_next_state(predictions);
-                            // implement the decided state
-                            //car.realize_next_state(trajectory);
 
                             msgJson["next_x"] = trajectory[0];
                             msgJson["next_y"] = trajectory[1];
