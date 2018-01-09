@@ -188,7 +188,8 @@ vector<vector<double> > Vehicle::choose_next_state(map<int, vector<Vehicle>> pre
         lane_rankings = lane_score_ranker(new_lane, trajectory_cost);
     }
 
-    cout << "-----------------------------------" << endl;
+
+    cout << "--------------- COSTS -------------" << endl;
     for (auto l : lane_rankings)
         std::cout << l << ' ' << average_lane_costs[l] << " | ";
     cout << endl;
@@ -219,10 +220,10 @@ int Vehicle::decide_best_state_lane(vector<int> lane_rankings) {
 
     // extract the state from the lane decision
     // and allow only one lane at a time.
-    if (best_lane >= lane + 1 && !lane_occupancy[lane + 1] && lane + 1 != lanes_available-1) {
+    if (best_lane >= lane + 1 && !lane_occupancy[lane + 1]) {
         state = "LCR";
         best_lane = lane + 1;
-    } else if (best_lane <= lane - 1 && !lane_occupancy[lane - 1] && lane - 1 != 0) {
+    } else if (best_lane <= lane - 1 && !lane_occupancy[lane - 1]) {
         state = "LCL";
         best_lane = lane - 1;
     } else if (!lane_occupancy[lane]){
@@ -540,10 +541,10 @@ vector<vector<double> > Vehicle::generate_spline(const int target_lane, const do
 
     double car_lane_center = center_of_lane(target_lane, 4.0);
 
-//    if (prev_path_size > 0)
-//    {
-//        s = end_path_s;
-//    }
+    if (prev_path_size > 0)
+    {
+        s = end_path_s;
+    }
 
     // create a list of widely spaced (x,y) anchor points evenly spaced at 30m
     // these anchor points will be interpolated with a spline.
