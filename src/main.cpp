@@ -77,7 +77,7 @@ int main() {
                 // The 4 signifies a websocket message
                 // The 2 signifies a websocket event
                 // auto sdata = string(data).substr(0, length);
-                //cout << sdata << endl;
+                // cout << sdata << endl;
                 if (length && length > 2 && data[0] == '4' && data[1] == '2') {
 
                     auto s = hasData(data);
@@ -115,17 +115,17 @@ int main() {
                             double end_path_s = j[1]["end_path_s"];
                             double end_path_d = j[1]["end_path_d"];
 
-                            car.configure(car_x, car_y, car_s, car_d, car_yaw_deg, car_vel_mph, "KL");
+                            car.configure(car_x, car_y, car_s, car_d, car_yaw_deg, car_vel_mph);
 
                             // set the previous path data returned by the simulator
-                            car.set_previous_path_data(previous_path_x, previous_path_y);
+                            car.set_previous_path_data(previous_path_x, previous_path_y, end_path_s, end_path_d);
 
                             cout << "--------------------------------------------------------" << endl;
                             cout << -1 << " "
                                  << "State=" << car.state << " (x,y)=(" << car.x << "," << car.y << ")"
-                                    << " (yaw_deg,v)=(" << car.yaw_deg << "," << car.v << ")"
-                                    << " (s,d)=(" << car.s <<  " " << car.d << ")"
-                                    << " lane=" << car.lane << endl;
+                                 << " (yaw_deg,v)=(" << car.yaw_deg << "," << car.v << ")"
+                                 << " (s,d)=(" << car.s << " " << car.d << ")"
+                                 << " lane=" << car.lane << endl;
 
                             // store in vehicles the coi. coi id is = -1
                             vehicles.insert(vehicles.end(), std::pair<int, Vehicle>(-1, car));
@@ -153,12 +153,14 @@ int main() {
                                 double other_car_v = sqrt(other_car_vx * other_car_vx + other_car_vy * other_car_vy);
                                 double other_car_s = i[5];
                                 double other_car_d = i[6];
-                                string other_car_state = "KL"; //  setting has no impact for other cars
 
                                 // configure other_car using the sensor data
                                 // note that sensors provide velocity in meters per second
-                                other_car.configure(other_car_x, other_car_y, other_car_s, other_car_d, other_car_yaw_deg,
-                                                    other_car.mps2mph(other_car_v), other_car_state);
+                                other_car.configure(other_car_x, other_car_y, other_car_s, other_car_d,
+                                                    other_car_yaw_deg,
+                                                    other_car.mps2mph(other_car_v));
+
+                                other_car.set_lane(other_car_d);
 
                                 // print to the console the post configuration information
                                 cout << other_car_id << " " << "(x,y)=(" << other_car.x << "," << other_car.y << ")"
@@ -174,9 +176,10 @@ int main() {
                                 }
 
                                 // predict the trajectory for each of the other_car vehicles
-                                // the prediction horizon is equal to the portion (0.0-1.0) of the path planner trajectory or
-                                // at the very least one time step beyond the current frame
-                                vector<Vehicle> preds = other_car.generate_predictions(max(1,(int) (1.0 * car.horizon_points)));
+                                // the prediction horizon is equal to the fraction (expressed 0.0-1.0) of the
+                                // path planner trajectory or at the very least one time step beyond the current frame
+                                vector<Vehicle> preds = other_car.generate_predictions(
+                                        max(1, (int) (1.0 * car.horizon_points)));
                                 predictions[other_car_id] = preds;
                             }
 

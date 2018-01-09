@@ -39,27 +39,29 @@ public:
     double a = 0.0;
 
     // velocity to target
-    double vel_target_mph = 48.;
+    double vel_target_mph = 48.5;
 
     double vel_target = mph2mps(vel_target_mph);
 
     map<int, double> intended_lane_velocity;
 
-    double state_cost_switch_threshold = 2;
+    double state_cost_switch_threshold = 0.;
 
-    // lane chnage opportunities with less velocity gain than this threshold are not accounted in the cost function
-    double velocity_lane_change_threshold = 0.0;
+    // lane chnage opportunities with less velocity gain than this threshold
+    // are not accounted in the cost function
+    double velocity_lane_change_threshold = 0;
 
-    vector<MovingAverage> lane_costs;
+    vector<MovingAverage> lane_cost_averagers;
     vector<double> average_lane_costs;
 
-    int lane_score_moving_average_window = 10;
+    int lane_cost_moving_average_window = 1;
 
     int lanes_available = 3;
 
     double lane_width = 4.0;
 
-    int preferred_buffer = 6; // impacts "keep lane" behavior.
+    // this is the buffer between the car of interest and other cars (in number of points) - it impacts "keep lane" behavior.
+    int preferred_buffer = 15;
 
     vector<bool> lane_occupancy;
 
@@ -67,7 +69,7 @@ public:
 
     int vehicle_ahead_too_close_meters = 30;
 
-    int vehicle_velocity_target_distance = 30;
+    double vehicle_velocity_target_distance = 30;
 
     int lane; // this represents the current lane and is set from the set_lane() method
 
@@ -78,6 +80,8 @@ public:
     vector<double> previous_path_x;
     vector<double> previous_path_y;
     int prev_path_size;
+    double end_path_s;
+    double end_path_d;
 
     vector<double> map_waypoints_x;
     vector<double> map_waypoints_y;
@@ -97,11 +101,11 @@ public:
 
     virtual ~Vehicle();
 
-    void configure(double x, double y, double s, double d, double car_yaw_deg, double vel_mph, string state="KL");
+    void configure(double x, double y, double s, double d, double car_yaw_deg, double vel_mph);
 
-    void set_previous_path_data(vector<double> previous_path_x, vector<double> previous_path_y);
+    void set_previous_path_data(vector<double> previous_path_x, vector<double> previous_path_y, double end_path_s, double end_path_d);
 
-    void set_lane();
+    void set_lane(double d_coord);
 
     //void set_intended_lane(double d);
 
@@ -113,15 +117,15 @@ public:
     // Reduced FSM without prepare lane change states
     vector<string> reduced_successor_states();
 
-    vector<vector<double> > generate_trajectory(string state, int lane, map<int, vector<Vehicle>> predictions);
+    vector<vector<double> > generate_trajectory(string state, int new_lane, map<int, vector<Vehicle>> predictions);
 
     double get_lane_velocity(map<int, vector<Vehicle>> predictions, int new_lane);
 
-    vector<vector<double> > keep_lane_trajectory(int lane, map<int, vector<Vehicle>> predictions);
+    vector<vector<double> > keep_lane_trajectory(int new_lane, map<int, vector<Vehicle>> predictions);
 
     vector<vector<double> > lane_change_trajectory(int new_lane, map<int, vector<Vehicle>> predictions);
 
-    vector<vector<double> > prep_lane_change_trajectory(int lane, map<int, vector<Vehicle>> predictions);
+    vector<vector<double> > prep_lane_change_trajectory(int new_lane, map<int, vector<Vehicle>> predictions);
 
 
     double position_at(int t);
@@ -134,7 +138,7 @@ public:
 
     vector<Vehicle> generate_predictions(int prediction_horizon = 2);
 
-    vector<vector<double> > generate_spline(int lane, double velocity);
+    vector<vector<double> > generate_spline(const int target_lane, const double velocity);
 
     /// Transform from Frenet s,d coordinates to Cartesian x,y - not a linear transformation
     vector<double> getXY(double s, double d, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y);
@@ -160,22 +164,22 @@ public:
     // Cost related methods Functions
     vector<int> lane_score_ranker(int lane, double cost);
 
-    void decide_best_lane(vector<int> lane_rankings);
+    int decide_best_state_lane(vector<int> lane_rankings);
 
-    double calculate_cost(int lane);
+    double calculate_cost(const int new_lane);
 
     double goal_distance_cost();
 
-    double inefficiency_cost(double intended_lane_velocity);
+    double inefficiency_cost(const double new_lane_vel);
 
-    double occupant_experience_cost(int intended_lane);
+    double occupant_experience_cost(const int intended_lane);
 
-    double collision_cost(int lane);
+    double collision_cost(const int new_lane);
 
     struct weighted_cost_functions {
         double time_diff_weight = 1;
         double s_diff_weight = 1;
-        double d_diff_weight = 1000;
+        double d_diff_weight = 1;
         double efficiency_weight = 1;
         double max_jerk_weight = 1;
         double total_jerk_weight = 1;
