@@ -5,6 +5,9 @@ Pantelis Monogioudis, Nokia
 
 :numbered:
 
+.Screenshot from Path Tracking Project Implementation
+image::screenshot.png
+
 [abstract]
 In this project the goal is to safely navigate around a virtual highway with other traffic that is driving +/-10 MPH of the 50 MPH speed limit. The planning algorithm is provided the car's localization and sensor fusion data and welll as a sparse map of waypoints around the highway. The outlined algorithm satisfies all the key performance indicator (KPI) requirements provided as input. 
 

@@ -54,6 +54,7 @@ public:
     vector<MovingAverage> lane_cost_averagers;
     vector<double> average_lane_costs;
 
+    // moving average window
     int lane_cost_moving_average_window = 1;
 
     int lanes_available = 3;
