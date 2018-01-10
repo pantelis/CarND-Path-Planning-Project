@@ -149,7 +149,6 @@ vector<vector<double> > Vehicle::choose_next_state(map<int, vector<Vehicle>> pre
 //    INPUT: The predictions dictionary.
 //    OUTPUT: The (lowest cost) trajectory for the vehicle corresponding to the next vehicle state.
 //
-//    Functions that will be useful:
 //    1. successor_states() - Uses the current state to return a vector of possible successor states for the finite
 //       state machine.
 //    2. generate_trajectory(string state, terget lane, map<int, vector<Vehicle>> predictions) - Returns a vector of Vehicle objects
@@ -165,18 +164,13 @@ vector<vector<double> > Vehicle::choose_next_state(map<int, vector<Vehicle>> pre
     // only consider states which can be reached from current FSM state.
     vector<string> possible_successor_states = reduced_successor_states();
 
-    // keep track of the total cost of each possible state.
-    vector<vector<double> > min_cost_traj;
-
     vector<int> lane_rankings;
 
-    set_lane(d);
+    //set_lane(d);
 
     for (auto &state_iter : possible_successor_states) {
 
         int new_lane = min(max(0, lane + lane_direction[state_iter]), lanes_available - 1);
-
-        cout << state_iter << " " << new_lane << endl;
 
         // generate a rough idea of what trajectory we would follow IF we chose this state.
         vector<vector<double> > traj = generate_trajectory(state_iter, new_lane, predictions);
@@ -184,10 +178,12 @@ vector<vector<double> > Vehicle::choose_next_state(map<int, vector<Vehicle>> pre
         // calculate the "cost" associated with that trajectory.
         double trajectory_cost = calculate_cost(new_lane);
 
-        // rank lanes according to average cost - averaging window is a int parameter >=1 .
-        lane_rankings = lane_score_ranker(new_lane, trajectory_cost);
+        // averaging window is a int parameter >=1 .
+        lane_cost_averaging(new_lane, trajectory_cost);
     }
 
+    // rank lanes according to average cost
+    lane_rankings = lane_cost_ranking();
 
     cout << "--------------- COSTS -------------" << endl;
     for (auto l : lane_rankings)
@@ -195,7 +191,10 @@ vector<vector<double> > Vehicle::choose_next_state(map<int, vector<Vehicle>> pre
     cout << endl;
     cout << "-----------------------------------" << endl;
 
+    // given the rankings which lane and associated state is the best
     int best_lane = decide_best_state_lane(lane_rankings);
+
+    lane = best_lane;
 
     final_trajectory = generate_trajectory(state, best_lane, predictions);
 
@@ -208,39 +207,42 @@ int Vehicle::decide_best_state_lane(vector<int> lane_rankings) {
     // decide best lane policy i.e. the best lane is the lane with minimal
     // sliding window average  cost
 
-    double temp_cost = 1e6;
-    int best_lane = 1;
-
-    for (auto &i : lane_rankings) {
-        if (average_lane_costs[i] < temp_cost) {
-            best_lane = i;
-            temp_cost = average_lane_costs[i];
+    for (auto &l: lane_rankings) {
+        if (lane_is_feasible(l))
+        {
+            cout << "BEST LANE = " << l << " with cost = " << average_lane_costs[l] << endl;
+            return l;
         }
     }
 
-    // extract the state from the lane decision
-    // and allow only one lane at a time.
-    if (best_lane >= lane + 1 && !lane_occupancy[lane + 1]) {
-        state = "LCR";
-        best_lane = lane + 1;
-    } else if (best_lane <= lane - 1 && !lane_occupancy[lane - 1]) {
-        state = "LCL";
-        best_lane = lane - 1;
-    } else if (!lane_occupancy[lane]){
-        state = "KL";
-        best_lane = lane;
-    }
-
-    cout << "BEST LANE = " << best_lane << " with cost = " << average_lane_costs[best_lane] << endl;
-
-    return (best_lane);
+    // if all lanes are not feasible e.g. when all lanes are occupied,
+    // then just maintain the current trajectory
+    return (lane);
 }
 
-vector<int> Vehicle::lane_score_ranker(int new_lane, double min_cost) {
+bool Vehicle::lane_is_feasible(int new_lane){
 
+    bool feasible = true;
+    // new lane should be not occupied and should not be spanning more than 1 lanes
+    if ( (abs(new_lane - lane) == 2) || (lane_occupancy[new_lane]) )
+    {
+        feasible = false;
+    }
+
+    return feasible;
+}
+
+
+
+
+void Vehicle::lane_cost_averaging(int new_lane, double min_cost) {
     // averaging lane costs to avoid instantaneous lane changes
     // moving average filter is initialized in the constructor.
     average_lane_costs[new_lane] = lane_cost_averagers[new_lane].next(min_cost);
+
+}
+
+vector<int> Vehicle::lane_cost_ranking() {
 
     // rank the lanes according to their average lane costs
     // first element of ranked_lane_indeces is the lowest cost lane index
@@ -428,8 +430,11 @@ void Vehicle::get_lanes_occupancy(map<int, vector<Vehicle>> predictions) {
 
     cout << "Lane occupancy = " << lane_occupancy[0] << " " << lane_occupancy[1] << " " << lane_occupancy[2] << endl;
 
-    if (lane_occupancy[lane]) {
-        cout << "COLISION WARNING WITH VEHICLE ON LANE " << lane << endl;
+    if (lane_occupancy[lane] && temp_vehicle.s < s) {
+        cout << "COLISION WARNING WITH VEHICLE COMMING FROM BEHIND ON LANE " << lane << endl;
+    }
+    else if (lane_occupancy[lane] && temp_vehicle.s > s) {
+        cout << "COLISION WARNING WITH VEHICLE IN FRONT ON LANE " << lane << endl;
     }
 }
 
@@ -445,7 +450,7 @@ bool Vehicle::get_vehicle_ahead(map<int, vector<Vehicle>> predictions, Vehicle &
     Vehicle temp_vehicle;
     for (auto &prediction : predictions) {
 
-        // pick the first element of the predicted vehicle trajectory that represents the current frame
+        // pick the last element of the predicted vehicle trajectory that represents the current frame
         temp_vehicle = prediction.second[0];
 
         //cout << temp_vehicle.s << " " << temp_vehicle.lane << endl;
@@ -507,7 +512,8 @@ double Vehicle::occupant_experience_cost(const int new_lane) {
     } else if ((lane == 0 && new_lane == 2) || (lane == 2 && new_lane == 0)) {
         // dont favor transitions that span 2 lanes
         cost = logistic(1.0);
-    } else if ((lane == 1 && new_lane == 0) || (lane == 1 && new_lane == 2)) {
+    }
+    else if ((lane == 1 && new_lane == 0) || (lane == 1 && new_lane == 2)) {
         // slightly penalize transitions from center lane i.e. introduce bias towards center lane.
         cost = logistic(0.5);
     }

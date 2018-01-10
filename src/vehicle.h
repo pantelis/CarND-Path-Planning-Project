@@ -49,7 +49,7 @@ public:
 
     // lane chnage opportunities with less velocity gain than this threshold
     // are not accounted in the cost function
-    double velocity_lane_change_threshold = 0;
+    double velocity_lane_change_threshold = 0.0;
 
     vector<MovingAverage> lane_cost_averagers;
     vector<double> average_lane_costs;
@@ -161,8 +161,12 @@ public:
         return d;
     }
 
+    void lane_cost_averaging(int new_lane, double min_cost);
+
     // Cost related methods Functions
-    vector<int> lane_score_ranker(int lane, double cost);
+    vector<int> lane_cost_ranking();
+
+    bool lane_is_feasible(int new_lane);
 
     int decide_best_state_lane(vector<int> lane_rankings);
 
