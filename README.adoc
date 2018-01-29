@@ -10,6 +10,7 @@ In this project the goal is to safely navigate around a virtual highway with oth
 
 .Demo of the Path Tracking Project Implementation
 video::qnKSfY_RDOU[youtube]
+https://www.youtube.com/edit?o=U&video_id=qnKSfY_RDOU
 
 === KPIs
 The KPIs for this project are:
