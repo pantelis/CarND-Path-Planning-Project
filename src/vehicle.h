@@ -47,9 +47,9 @@ public:
 
     double state_cost_switch_threshold = 0.;
 
-    // lane chnage opportunities with less velocity gain than this threshold
+    // lane change opportunities with less velocity gain than this threshold
     // are not accounted in the cost function
-    double velocity_lane_change_threshold = 0.0;
+    double velocity_lane_change_threshold = 1.0;
 
     vector<MovingAverage> lane_cost_averagers;
     vector<double> average_lane_costs;
@@ -62,7 +62,7 @@ public:
     double lane_width = 4.0;
 
     // this is the buffer between the car of interest and other cars (in number of points) - it impacts "keep lane" behavior.
-    int preferred_buffer = 15;
+    int preferred_buffer = 25;
 
     vector<bool> lane_occupancy;
 
@@ -71,6 +71,8 @@ public:
     int vehicle_ahead_too_close_meters = 30;
 
     double vehicle_velocity_target_distance = 30;
+
+    double feasible_lane_change_velocity_threshold_mph = 30.0;
 
     int lane; // this represents the current lane and is set from the set_lane() method
 
@@ -120,7 +122,7 @@ public:
 
     vector<vector<double> > generate_trajectory(string state, int new_lane, map<int, vector<Vehicle>> predictions);
 
-    double get_lane_velocity(map<int, vector<Vehicle>> predictions, int new_lane);
+    double get_max_lane_velocity(map<int, vector<Vehicle>> predictions, int new_lane);
 
     vector<vector<double> > keep_lane_trajectory(int new_lane, map<int, vector<Vehicle>> predictions);
 
@@ -184,8 +186,8 @@ public:
     struct weighted_cost_functions {
         double time_diff_weight = 1;
         double s_diff_weight = 1;
-        double d_diff_weight = 1;
-        double efficiency_weight = 1;
+        double d_diff_weight = 10;
+        double efficiency_weight = 10;
         double max_jerk_weight = 1;
         double total_jerk_weight = 1;
         double collision_weight = 100;

@@ -163,10 +163,10 @@ int main() {
                                 other_car.set_lane(other_car_d);
 
                                 // print to the console the post configuration information
-                                cout << other_car_id << " " << "(x,y)=(" << other_car.x << "," << other_car.y << ")"
-                                     << "(yaw_deg,v)=(" << other_car.yaw_deg << "," << other_car.v << ")"
-                                     << "(s,d)=(" << other_car.s <<  " " << other_car.d << ")"
-                                     << "lane=" << other_car.lane << endl;
+//                                cout << other_car_id << " " << "(x,y)=(" << other_car.x << "," << other_car.y << ")"
+//                                     << "(yaw_deg,v)=(" << other_car.yaw_deg << "," << other_car.v << ")"
+//                                     << "(s,d)=(" << other_car.s <<  " " << other_car.d << ")"
+//                                     << "lane=" << other_car.lane << endl;
 
                                 // sometimes we receive other_car data with negative d coordinate  - we ignore those
                                 if (other_car.d > 0) {
@@ -177,7 +177,7 @@ int main() {
 
                                 // predict the trajectory for each of the other_car vehicles
                                 // the prediction horizon is equal to the fraction (expressed 0.0-1.0) of the
-                                // path planner trajectory or at the very least one time step beyond the current frame
+                                // path planner trajectory or at the very least one time step ahead of the current frame
                                 vector<Vehicle> preds = other_car.generate_predictions(
                                         max(1, (int) (1.0 * car.horizon_points)));
                                 predictions[other_car_id] = preds;
