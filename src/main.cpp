@@ -163,10 +163,10 @@ int main() {
                                 other_car.set_lane(other_car_d);
 
                                 // print to the console the post configuration information
-//                                cout << other_car_id << " " << "(x,y)=(" << other_car.x << "," << other_car.y << ")"
-//                                     << "(yaw_deg,v)=(" << other_car.yaw_deg << "," << other_car.v << ")"
-//                                     << "(s,d)=(" << other_car.s <<  " " << other_car.d << ")"
-//                                     << "lane=" << other_car.lane << endl;
+                                cout << other_car_id << " " << "(x,y)=(" << other_car.x << "," << other_car.y << ")"
+                                     << "(yaw_deg,v)=(" << other_car.yaw_deg << "," << other_car.v << ")"
+                                     << "(s,d)=(" << other_car.s <<  " " << other_car.d << ")"
+                                     << "lane=" << other_car.lane << endl;
 
                                 // sometimes we receive other_car data with negative d coordinate  - we ignore those
                                 if (other_car.d > 0) {
