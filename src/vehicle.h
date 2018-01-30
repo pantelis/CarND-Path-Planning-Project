@@ -198,7 +198,7 @@ public:
 
     // helper methods
     /// Returns the M_PI constant
-    inline constexpr double pi() const { return M_PI; }
+    inline double pi() const { return M_PI; }
 
     inline double deg2rad(double x) { return x * pi() / 180.; }
     inline double rad2deg(double x) { return x * 180. / pi(); }
